@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBites</title>
+  <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header>
+    <img id="logo" src="img/CookieBitesSinFondo.png" alt="Logo CookieBites" class="logo" />
+    <div class="icons">
+      <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+      <img src="img/usuario.png" alt="Usuario" class="usuario" />
+      <img src="img/carrito.png" alt="Carrito de Pedidos" class="carrito" />
+    </div>
+  </header>
+
+  <main>
+    <button id="boton-volver">Volver</button>
+    <h2>Carrito</h2>
+    <div id="contenedor-carrito"></div>
+    <div style="text-align: right; margin-top: 24px">
+      <button id="boton-crearpedido">Crear Pedido</button>
+    </div>
+  </main>
+
+  <footer>
+    <p>© CookieBites</p>
+  </footer>
+</body>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    // Obtiene los parámetros de la URL
+    let urlParams = new URLSearchParams(window.location.search);
+    let tipoDeUsuario = urlParams.get("perfil");
+    let nombreUsuario = urlParams.get("id");
+
+    // Botón volver
+    document.getElementById("boton-volver").addEventListener("click", () => {
+      window.location.href =
+        "ConsultarCatalogo.html?perfil=" +
+        tipoDeUsuario +
+        "&id=" +
+        nombreUsuario;
+    });
+
+    const contenedor = document.getElementById("contenedor-carrito");
+
+    async function generarCarrito(carrito) {
+      console.log("Carrito recibido:", carrito);
+      carrito.forEach((prod, idx) => {
+        console.log(`Producto[${idx}]:`, prod);
+      });
+      contenedor.innerHTML = "";
+      if (!carrito || carrito.length === 0) {
+        contenedor.innerHTML = "<p>El carrito está vacío.</p>";
+        return;
+      }
+      if (
+        !nombreUsuario ||
+        typeof tipoDeUsuario !== "string" ||
+        tipoDeUsuario.toLowerCase() !== "cliente"
+      ) {
+        let advertencia = document.createElement("div");
+        advertencia.textContent =
+          "No está loggeado como cliente, trate iniciar sesión como usuario";
+        contenedor.appendChild(advertencia);
+        return;
+      }
+      for (const producto of carrito) {
+        let nombre = producto.nombreProducto || producto.nombre;
+        if (!nombre) {
+          console.warn("Producto sin nombre válido:", producto);
+          const item = document.createElement("div");
+          item.classList.add("item-carrito");
+          item.innerHTML = `
+        <span style="color:red;"><strong>Producto sin nombre</strong></span>
+        <span class="precio-carrito">${producto.cantidad ?? "?"} unid</span>
+        <span class="precio-carrito">$0.00</span>
+      `;
+          contenedor.appendChild(item);
+          continue;
+        }
+        let precio = 0;
+        let img = "";
+        let nombreMostrado = nombre;
+        try {
+          const resp = await fetch(
+            "http://localhost:8080/productos/buscar/" +
+            encodeURIComponent(nombre)
+          );
+          if (resp.ok) {
+            const prodData = await resp.json();
+            precio = prodData.precio ?? 0;
+            nombreMostrado = prodData.nombre || nombre;
+            img = prodData.imagen || "";
+          } else {
+            nombreMostrado = nombre + " (no encontrado en catálogo)";
+          }
+        } catch (e) {
+          console.error("Error buscando producto:", nombre, e);
+          nombreMostrado = nombre + " (error de conexión)";
+        }
+        const item = document.createElement("div");
+        item.classList.add("item-carrito");
+        item.innerHTML = `
+      <img src="${img}" alt="${nombreMostrado}" width="60">
+      <span><strong>${nombreMostrado}</strong></span>
+      <span class="precio-carrito">${producto.cantidad} unid</span>
+      <button class="editarcant-btn" title="Editar Cantidad">
+        <img src="img/editnumber.png" alt="EditarCantidad" class="icono-editar">
+        </button>
+      <span class="precio-carrito">$${(producto.cantidad * precio).toFixed(
+          2
+        )}</span>
+      <button class="eliminar-btn" title="Eliminar del carrito">
+        <img src="img/papelera.png" alt="Eliminar" class="icono-papelera">
+      </button>
+    `;
+        contenedor.appendChild(item);
+      }
+
+      // Eliminar producto del carrito
+      const eliminarbtns = contenedor.querySelectorAll(".eliminar-btn");
+      eliminarbtns.forEach((btn, idx) => {
+        btn.addEventListener("click", async function () {
+          const producto = carrito[idx];
+          if (confirm("¿Eliminar este producto del carrito?")) {
+            await fetch(
+              "http://localhost:8080/carrito/eliminar/" +
+              encodeURIComponent(nombreUsuario) +
+              "/" +
+              encodeURIComponent(
+                producto.nombreProducto || producto.nombre
+              ),
+              { method: "DELETE" }
+            );
+            buscarCarrito(); // Recarga el carrito
+          }
+        });
+      });
+
+      // Editar cantidad de producto en el carrito
+      const editarbtns = contenedor.querySelectorAll(".editarcant-btn");
+      editarbtns.forEach((btn, idx) => {
+        btn.addEventListener("click", function () {
+          const itemDiv = btn.closest(".item-carrito");
+          let cantidadinput = itemDiv.querySelector("input[type='number']");
+          if (cantidadinput) {
+            // Guardar nueva cantidad
+            const nuevaCantidad = parseInt(cantidadinput.value) || 1;
+            const producto = carrito[idx];
+            fetch(
+              "http://localhost:8080/carrito/editar/" +
+              encodeURIComponent(nombreUsuario) +
+              "/" +
+              encodeURIComponent(
+                producto.nombreProducto || producto.nombre
+              ),
+              {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ cantidad: nuevaCantidad }),
+              }
+            ).then(() => buscarCarrito());
+            return;
+          }
+          // Cambia el span por un input para editar
+          const cantidadSpan = itemDiv.querySelectorAll(".precio-carrito")[0];
+          const cantidadActual = parseInt(cantidadSpan.textContent) || 1;
+          const input = document.createElement("input");
+          input.type = "number";
+          input.min = 1;
+          input.value = cantidadActual;
+          input.style.width = "60px";
+          cantidadSpan.replaceWith(input);
+          input.focus();
+          input.addEventListener("keydown", function (event) {
+            if (event.key === "Enter") {
+              btn.click();
+            }
+          });
+        });
+      });
+
+
+    }
+
+    async function buscarCarrito() {
+      if (!nombreUsuario) {
+        contenedor.innerHTML = "<p>Error: usuario no identificado.</p>";
+        return;
+      }
+      console.log("Buscando carrito para:", nombreUsuario);
+      fetch("http://localhost:8080/carrito/leer/" + nombreUsuario)
+        .then((response) => response.json())
+        .then((json) => generarCarrito(json))
+        .catch((err) => {
+          contenedor.innerHTML = "<p>Error al cargar el carrito.</p>";
+          console.error(err);
+        });
+    }
+
+    buscarCarrito();
+
+    document
+      .querySelector("#boton-crearpedido")
+      .addEventListener("click", function (e) {
+        e.preventDefault();
+        if (tipoDeUsuario !== "cliente") {
+          alert("Inicie sesion para crear un pedido!");
+          return;
+        }
+        if (document.querySelectorAll(".item-carrito").length === 0) {
+          alert(
+            "El carrito está vacío. Por favor, agrega productos antes de crear un pedido."
+          );
+          return;
+        }
+        window.location.href =
+          "CrearPedido.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario;
+      });
+
+    // Icono usuario
+    const usuario = document.querySelector(".usuario");
+    if (usuario) {
+      usuario.onclick = function () {
+        let url =
+          tipoDeUsuario &&
+            (tipoDeUsuario.toLowerCase() === "admin" ||
+              tipoDeUsuario.toLowerCase() === "cliente")
+            ? "ConsultarPerfil.html?perfil=" +
+            tipoDeUsuario +
+            "&id=" +
+            nombreUsuario
+            : "LogIn.html";
+        window.location.href = url;
+      };
+    }
+
+    const cierreicon = document.querySelector(".logout");
+    if (tipoDeUsuario === "cliente") {
+      cierreicon.style.display = "inline";
+      cierreicon.onclick = function () {
+        if (confirm("¿Estas seguro de querer cerrar sesión?"))
+          window.location.href = "ConsultarCatalogo.html";
+      };
+    }
+    else{
+      cierreicon.style.display = "none";
+    }
+
+  });
+</script>
+
+</html>

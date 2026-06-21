@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CookieBites</title>
+    <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Dongle&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+
+  <body>
+    <header>
+      <img
+        id="logo"
+        src="img/CookieBitesSinFondo.png"
+        alt="Logo CookieBites"
+        class="logo"
+      />
+      <div class="icons">
+        <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+        <img src="img/edit.png" alt="Crear cuenta" class="perfil-nuevo" />
+        <img src="img/ventas.png" alt="ventas" class="ventas" />
+      </div>
+    </header>
+    <main>
+      <button id="boton-volver">Volver</button>
+
+      <h2 class="titulo-formulario">Agregar Nueva Galleta</h2>
+      <form
+        id="form-nueva-galleta"
+        enctype="multipart/form-data"
+        class="form-galleta"
+      >
+        <div class="campo-form">
+          <label for="nombre">Nombre de la galleta:</label>
+          <input type="text" id="nombre" name="nombre" required />
+        </div>
+        <div class="campo-form">
+          <label for="ingredientes"
+            >Ingredientes<br /><span class="sub-label"
+              >(separados por coma)</span
+            >:</label
+          >
+          <input type="text" id="ingredientes" name="ingredientes" required />
+        </div>
+        <div class="campo-form">
+          <label for="precio">Precio ($):</label>
+          <input
+            type="number"
+            id="precio"
+            name="precio"
+            step="0.01"
+            min="0"
+            required
+          />
+        </div>
+        <div class="campo-form">
+          <label for="imagen">Imagen de la Galleta:</label>
+          <input
+            type="file"
+            id="imagen"
+            name="imagen"
+            accept="image/*"
+            required
+          />
+        </div>
+        <button class="boton-agregar" id="agregar">Agregar Producto</button>
+      </form>
+    </main>
+
+    <footer>
+      <p>© CookieBites</p>
+    </footer>
+  </body>
+
+  <script>
+    let urlParams = new URLSearchParams(window.location.search);
+    let tipoDeUsuario = urlParams.get("perfil");
+    let nombreUsuario = urlParams.get("id");
+
+    async function agregarProducto(nombresito, preciocito, ingredientesitos) {
+      console.log(
+        JSON.stringify({
+          nombre: nombresito,
+          precio: preciocito,
+          ingredientes: ingredientesitos,
+        })
+      );
+      alert("¡Registro exitoso!");
+      fetch("http://localhost:8080/productos/crear", {
+        method: "POST",
+        body: JSON.stringify({
+          nombre: nombresito,
+          precio: Number(preciocito),
+          ingredientes: ingredientesitos,
+        }),
+        headers: {
+          "Content-type": "application/json; charset=UTF-8",
+        },
+      }).then(
+        (window.location.href =
+          "ConsultarCatalogo.html?perfil=" +
+          tipoDeUsuario +
+          "&id=" +
+          nombreUsuario)
+      );
+    }
+
+    /*  document.getElementById("agregar").addEventListener(('click'), ()=>{
+            console.log("pip");
+            alert('¡Registro exitoso!')
+            let nombre = document.getElementById("nombre").value;
+            let precio = document.getElementById("precio").value;
+            let ingredientes = document.getElementById("ingredientes").value;
+            alert('¡Registro exitoso!')
+            if((nombre !== '') && (precio !== '') &&(ingredientes !== '')){
+                agregarProducto(nombre, precio, ingredientes.split(','));
+            } else {
+                alert("Por favor llene todos los campos");
+            }
+
+
+        })
+
+        let botonVolver = document.getElementById("boton-volver");
+        botonVolver.addEventListener(('click'), ()=>{
+            window.location.href = "ConsultarCatalogo.html?perfil=" + tipoDeUsuario +  "&id=" + nombreUsuario ;
+        })*/
+
+    document
+      .getElementById("form-nueva-galleta")
+      .addEventListener("submit", async function (e) {
+        e.preventDefault();
+
+        let nombre = document.getElementById("nombre").value;
+        let precio = document.getElementById("precio").value;
+        let ingredientes = document.getElementById("ingredientes").value;
+        let imagen = document.getElementById("imagen").files[0];
+
+        if (!nombre || !precio || !ingredientes || !imagen) {
+          alert("Por favor llene todos los campos");
+          return;
+        }
+
+        // Prepara el objeto producto (sin imagen)
+        const producto = {
+          nombre: nombre,
+          precio: Number(precio),
+          ingredientes: ingredientes.split(","),
+        };
+
+        // Prepara el FormData
+        const formData = new FormData();
+        formData.append(
+          "producto",
+          new Blob([JSON.stringify(producto)], { type: "application/json" })
+        );
+        formData.append("imagen", imagen);
+
+        // Envía el FormData
+        const response = await fetch("http://localhost:8080/productos/crear", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (response.ok) {
+          alert("¡Registro exitoso!");
+          window.location.href =
+            "ConsultarCatalogo.html?perfil=" +
+            tipoDeUsuario +
+            "&id=" +
+            nombreUsuario;
+        } else {
+          alert("Error al registrar el producto");
+        }
+      });
+
+    let botonVolver = document.getElementById("boton-volver");
+    botonVolver.addEventListener("click", () => {
+      window.location.href =
+        "ConsultarCatalogo.html?perfil=" +
+        tipoDeUsuario +
+        "&id=" +
+        nombreUsuario;
+    });
+
+    const editusericon = document.querySelector(".perfil-nuevo");
+    editusericon.onclick = function () {
+      window.location.href = "EliminarPerfil.html?perfil=admin&id=" + nombreUsuario;
+    };
+
+    const cierreicon = document.querySelector(".logout");
+        cierreicon.onclick = function () {
+        if(confirm("¿Estas seguro de querer cerrar sesión?"))
+          window.location.href = "ConsultarCatalogo.html";
+    };
+
+    const ventasicon = document.querySelector(".ventas");
+        ventasicon.onclick = function () {
+        window.location.href = "ConsultarVenta.html?perfil=admin&id=" + nombreUsuario;
+    };
+
+
+  </script>
+</html>

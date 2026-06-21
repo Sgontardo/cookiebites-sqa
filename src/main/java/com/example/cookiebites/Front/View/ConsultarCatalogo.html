@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBites</title>
+  <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header>
+    <img id="logo" src="img/CookieBitesSinFondo.png" alt="Logo CookieBites" class="logo" />
+    <div class="icons">
+      <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+      <img src="img/usuario.png" alt="usuario" class="usuario" />
+      <img src="img/carrito.png" alt="Carrito de Pedidos" class="carrito" />
+      <img src="img/ventas.png" alt="Ventas" class="ventas" />
+    </div>
+  </header>
+  <main>
+    <h1>Hoy quiero una...</h1>
+    <div id="catalogo"></div>
+  </main>
+  <footer>
+    <p>© CookieBites</p>
+  </footer>
+</body>
+
+<script>
+  // Selecciona el carrito
+  const carrito = document.querySelector(".carrito");
+  carrito.onclick = function () {
+    window.location.href =
+      "Carrito.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario;
+  };
+
+  let urlParams = new URLSearchParams(window.location.search);
+  let tipoDeUsuario = urlParams.get("perfil");
+  let nombreUsuario = urlParams.get("id");
+  let listaCatalogo = document.getElementById("catalogo");
+
+  // Mostrar solo el icono de ventas si eres admin
+  const ventasIcon = document.querySelector(".ventas");
+  const carritoIcon = document.querySelector(".carrito");
+  if (tipoDeUsuario === "admin") {
+    ventasIcon.style.display = "inline";
+    carritoIcon.style.display = "none";
+    ventasIcon.onclick = function () {
+      window.location.href =
+        "ConsultarVenta.html?perfil=admin&id=" + nombreUsuario;
+    };
+  } else {
+    ventasIcon.style.display = "none";
+    carritoIcon.style.display = "inline";
+    carritoIcon.onclick = function () {
+      window.location.href =
+        "Carrito.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario;
+    };
+  }
+
+  function llenarListadoProductos(listado) {
+    let hijoActual;
+    let nombre;
+    let imagen;
+    let precio;
+    for (let producto of listado) {
+      hijoActual = document.createElement("div");
+      hijoActual.classList.add("producto");
+
+      imagen = document.createElement("img");
+      // Usa la ruta de la imagen del producto o una imagen por defecto
+      imagen.setAttribute(
+        "src",
+        producto.imagen || "img/galletas/default.jpg"
+      );
+      imagen.setAttribute("alt", "imagen producto");
+
+      nombre = document.createElement("h2");
+      nombre.textContent = producto.nombre;
+      nombre.classList.add("nombre");
+
+      precio = document.createElement("h3");
+      precio.textContent = "$" + producto.precio;
+      precio.classList.add("precio");
+      hijoActual.appendChild(imagen);
+      hijoActual.appendChild(nombre);
+      hijoActual.appendChild(precio);
+
+      if (tipoDeUsuario === "admin") {
+        const btnEliminar = document.createElement("button");
+        btnEliminar.className = "eliminar-btn-producto";
+        btnEliminar.title = "Eliminar producto";
+        btnEliminar.innerHTML = `<img src="img/papelera.png" alt="Eliminar" class="icono-papelera-producto">`;
+        btnEliminar.onclick = async (e) => {
+          e.stopPropagation();
+          if (confirm(`¿Seguro que deseas eliminar "${producto.nombre}"?`)) {
+            await fetch(
+              "http://localhost:8080/productos/eliminar/" +
+              encodeURIComponent(producto.nombre),
+              { method: "DELETE" }
+            );
+            hijoActual.remove();
+          }
+        };
+        hijoActual.appendChild(btnEliminar);
+      }
+
+      hijoActual.addEventListener("click", () => {
+        window.location.href =
+          "ConsultarProducto.html?perfil=" +
+          tipoDeUsuario +
+          "&id=" +
+          nombreUsuario +
+          "&prod=" +
+          producto.nombre;
+      });
+
+      listaCatalogo.appendChild(hijoActual);
+    }
+  }
+
+  function agregarBotonAgregar() {
+    if (tipoDeUsuario == "admin") {
+      console.log("ejecutado1");
+      let tarjetaAgregar = document.createElement("div");
+      tarjetaAgregar.classList.add("producto", "agregar-producto");
+      let iconoMas = document.createElement("span");
+      iconoMas.textContent = "+";
+      iconoMas.classList.add("icono-mas"); // Para estilos extra si quieres
+      let texto = document.createElement("h2");
+      texto.textContent = "Agregar nueva galleta";
+      texto.classList.add("nombre"); // Igual que los nombres de las otras tarjetas
+      tarjetaAgregar.appendChild(iconoMas);
+      tarjetaAgregar.appendChild(texto);
+      tarjetaAgregar.addEventListener("click", () => {
+        window.location.href =
+          "CrearProducto.html?perfil=" +
+          tipoDeUsuario +
+          "&id=" +
+          nombreUsuario;
+      });
+      listaCatalogo.appendChild(tarjetaAgregar);
+    }
+  }
+
+  async function buscarLista() {
+    console.log("Busando...");
+    let aux;
+    fetch("http://localhost:8080/productos")
+      .then((response) => response.json())
+      .then((json) => llenarListadoProductos(json));
+
+    //return JSON.parse(pediod);
+  }
+
+  // Acción al hacer clic (puedes cambiar la URL)
+  // tarjetaAgregar.onclick = function() {
+  //   window.open('InterfazAdmiNuevaGalleta.html', '_blank');
+  // };
+
+  // listaCatalogo.appendChild(tarjetaAgregar);
+
+  // Selecciona el perfil de usuario
+  // const usuario = document.querySelector(".usuario");
+  // usuario.onclick = function () {
+  //   let url =
+  //     tipoDeUsuario == "admin" || tipoDeUsuario == "cliente"
+  //       ? "ConsultarPerfil.html?perfil=" +
+  //         tipoDeUsuario +
+  //         "&id=" +
+  //         nombreUsuario
+  //       : "LogIn.html";
+  //   window.location.href = url;
+  // };
+
+  const usuario = document.querySelector(".usuario");
+  usuario.onclick = function () {
+    let url;
+    if (tipoDeUsuario === "admin") {
+      url = "EliminarPerfil.html?perfil=admin&id=" + nombreUsuario;
+    } else if (tipoDeUsuario === "cliente") {
+      url = "ConsultarPerfil.html?perfil=cliente&id=" + nombreUsuario;
+    } else {
+      url = "LogIn.html";
+    }
+    window.location.href = url;
+  };
+
+  let productos = document.querySelectorAll(".producto");
+  productos.forEach(function (producto, index) {
+    producto.onclick = function () {
+      let clickedProductData = listaDePrueba[index];
+      sessionStorage.setItem(
+        "currentProduct",
+        JSON.stringify(clickedProductData)
+      );
+      window.open("ConsultarProducto.html", "_blank");
+    };
+  });
+
+  buscarLista();
+
+  const cierreicon = document.querySelector(".logout");
+  if (tipoDeUsuario !== "admin" && tipoDeUsuario !== "cliente") {
+    cierreicon.style.display = "none";
+    ventasicon.style.display = "none";
+  }
+  else {
+    cierreicon.style.display = "inline";
+    cierreicon.onclick = function () {
+      if (confirm("¿Estas seguro de querer cerrar sesión?"))
+        window.location.href = "ConsultarCatalogo.html";
+    };
+  }
+
+  agregarBotonAgregar();
+</script>
+
+</html>

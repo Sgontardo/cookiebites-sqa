@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBites</title>
+  <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header>
+    <img id="logo" src="img/CookieBitesSinFondo.png" alt="Logo CookieBites" class="logo" />
+    <div class="icons">
+      <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+      <img src="img/usuario.png"  alt="usuario" class="usuario" />
+      <img src="img/carrito.png" alt="Carrito de Pedidos" class="carrito" />
+    </div>
+  </header>
+  <main>
+    <button id="boton-volver">Volver</button>
+
+    <div class="venta-container">
+      <!-- Panel Izquierdo -->
+      <div class="panel-izq">
+        <form id="form-pedido" class="form-pago" autocomplete="off">
+          <div class="campo-form">
+            <label for="cliente">Nombre del cliente:</label>
+            <input type="text" id="cliente" name="cliente" required />
+          </div>
+          <div class="campo-form">
+            <label for="fecha">Fecha de entrega:</label>
+            <input type="date" id="fecha" name="fecha" required />
+          </div>
+        </form>
+      </div>
+      <!-- Panel Derecho -->
+      <div class="panel-der">
+        <h3>Pedido</h3>
+        <div id="lista-productos"></div>
+        <div class="resumen-box">
+          <div class="resumen-item total-item">
+            <span>Total:</span>
+            <span id="total-pedido">$0.00</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="direccion-envio direccion-envio-full">
+      <h2>Dirección de envío</h2>
+      <h3>IMPORTANTE: solo hay envíos a Caracas-Venezuela.</h3>
+      <div class="campo-form">
+        <label for="zona">Zona de Caracas:</label>
+        <select id="zona" name="zona" required>
+          <option value="">Seleccione una zona</option>
+          <option value="Chacao">Chacao</option>
+          <option value="Baruta">Baruta</option>
+          <option value="El Hatillo">El Hatillo</option>
+          <option value="Sucre">Sucre</option>
+          <option value="Libertador">Libertador</option>
+          <option value="La Candelaria">La Candelaria</option>
+          <option value="San Bernardino">San Bernardino</option>
+          <option value="La Castellana">La Castellana</option>
+          <option value="Altamira">Altamira</option>
+          <option value="Las Mercedes">Las Mercedes</option>
+          <option value="Los Palos Grandes">Los Palos Grandes</option>
+          <option value="La Florida">La Florida</option>
+          <option value="Otra">Otra</option>
+        </select>
+      </div>
+      <div class="campo-form">
+        <label for="detalles">Información detallada:</label>
+        <textarea id="detalles" name="detalles" rows="3" placeholder="Apartamento, piso, punto de referencia, etc."
+          required></textarea>
+      </div>
+      <div style="text-align: right; margin-top: 24px">
+        <button type="button" id="boton-siguiente">Confirmar</button>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>© CookieBites</p>
+  </footer>
+
+  <script>
+    let urlParams = new URLSearchParams(window.location.search);
+    let tipoDeUsuario = urlParams.get("perfil");
+    let nombreUsuario = urlParams.get("id");
+    let carrito;
+    let totalPedido = 0;
+
+    document.getElementById("boton-volver").addEventListener("click", () => {
+      window.location.href =
+        "ConsultarCatalogo.html?perfil=" +
+        tipoDeUsuario +
+        "&id=" +
+        nombreUsuario;
+    });
+
+    async function buscarCarrito() {
+      fetch("http://localhost:8080/carrito/leer/" + nombreUsuario)
+        .then((response) => response.json())
+        .then((json) => generarCarrito(json));
+    }
+
+    async function generarCarrito(lista) {
+      carrito = lista;
+      let recipiente = document.getElementById("lista-productos");
+      recipiente.innerHTML = "";
+      let acum = 0;
+      for (let elemento of lista) {
+        let contenedor = document.createElement("div");
+        contenedor.classList.add("item-carrito");
+        /*let imagen = document.createElement("img");
+        imagen.src = elemento.imagen;
+        imagen.alt = elemento.nombreProducto;
+        contenedor.appendChild(imagen);*/
+
+        // Buscar el producto real para obtener nombre y precio
+        let nombreMostrado = elemento.nombreProducto;
+        let precioUnitario = 0;
+        try {
+          const resp = await fetch(
+            "http://localhost:8080/productos/buscar/" +
+            encodeURIComponent(elemento.nombreProducto)
+          );
+          if (resp.ok) {
+            const prodData = await resp.json();
+            nombreMostrado = prodData.nombre || elemento.nombreProducto;
+            precioUnitario = prodData.precio;
+          } else {
+            nombreMostrado = elemento.nombreProducto + " (no encontrado)";
+          }
+        } catch (e) {
+          nombreMostrado = elemento.nombreProducto + " (error)";
+        }
+
+        let nombre = document.createElement("span");
+        nombre.textContent = nombreMostrado;
+        contenedor.appendChild(nombre);
+
+        let precio = document.createElement("span");
+        precio.textContent =
+          elemento.cantidad +
+          "x" +
+          precioUnitario +
+          "= $" +
+          (elemento.cantidad * precioUnitario).toFixed(2);
+        contenedor.appendChild(precio);
+
+        recipiente.appendChild(contenedor);
+        acum += elemento.cantidad * precioUnitario;
+      }
+      totalPedido = acum;
+      document.getElementById("total-pedido").textContent =
+        "$" + acum.toFixed(2);
+    }
+
+    async function buscarCarrito() {
+      fetch("http://localhost:8080/carrito/leer/" + nombreUsuario)
+        .then((response) => response.json())
+        .then((json) => generarCarrito(json));
+    }
+
+    async function crearPedido(Pedido) {
+      // Guarda los datos del pedido en localStorage
+      localStorage.setItem("nombreCliente", Pedido.nombreUsuario);
+      localStorage.setItem("fechaEntrega", Pedido.fechaDeEntrega);
+      localStorage.setItem("direccionEntrega", Pedido.direccion);
+      localStorage.setItem("carritoPedido", JSON.stringify(Pedido.carrito));
+      localStorage.setItem("totalPedido", totalPedido);
+
+      fetch("http://localhost:8080/carrito/agregar/", {
+        method: "POST",
+        body: JSON.stringify(Pedido),
+        headers: {
+          "Content-type": "application/json; charset=UTF-8",
+        },
+      }).then(() => {
+        window.location.href =
+          "RegistrarVenta.html?perfil=" +
+          tipoDeUsuario +
+          "&id=" +
+          nombreUsuario;
+      });
+    }
+
+    document
+      .getElementById("boton-siguiente")
+      .addEventListener("click", () => {
+        let nombreDelCliente = document.getElementById("cliente").value;
+        let fecha = document.getElementById("fecha").value;
+        let direccion =
+          document.getElementById("zona").value +
+          " - " +
+          document.getElementById("detalles").value;
+
+        let pedido = {
+          nombreUsuario: nombreDelCliente,
+          direccion: direccion,
+          carrito: carrito,
+          fechaDeEntrega: fecha,
+          estado: "EN_PROCESO",
+        };
+
+        if (!nombreDelCliente || !fecha || !direccion) {
+          alert("Por favor, completa todos los campos del formulario.");
+          return;
+        }
+
+        if (fecha < new Date().toISOString().split("T")[0]) {
+          alert("La fecha de entrega no puede ser anterior a hoy.");
+          return;
+        }
+
+        crearPedido(pedido);
+      });  
+
+    buscarCarrito();
+
+    const usuario = document.querySelector(".usuario");
+    usuario.onclick = function () {
+        window.location.href = "ConsultarPerfil.html?perfil=cliente&id=" + nombreUsuario;
+    };
+
+    const carritoIcon = document.querySelector(".carrito");
+    carritoIcon.onclick = function () {
+        window.location.href = "Carrito.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario;
+    };
+
+    const cierreicon = document.querySelector(".logout");
+        cierreicon.onclick = function () {
+        if(confirm("¿Estas seguro de querer cerrar sesión?"))
+          window.location.href = "ConsultarCatalogo.html";
+      };
+  </script>
+</body>
+
+</html>

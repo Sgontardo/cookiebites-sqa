@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBites</title>
+  <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header>
+    <img id="logo" src="img/CookieBitesSinFondo.png" alt="Logo CookieBites" class="logo" />
+    <div class="icons">
+      <img src="img/edit.png" alt="Crear cuenta" class="perfil-nuevo" />
+      <img src="img/carrito.png" alt="Carrito de Pedidos" class="carrito" />
+    </div>
+  </header>
+  <main>
+    <button id="boton-volver">Volver</button>
+    <form class="login-form">
+      <h2>¡Registrate!</h2>
+      <label for="nombre">Nombre:</label>
+      <input type="text" id="nombre" name="nombre" required />
+
+      <label for="usuario">Nombre de Usuario:</label>
+      <input type="text" id="usuario" name="usuario" required />
+
+      <label for="correo">Correo:</label>
+      <input type="email" id="correo" name="correo" required />
+
+      <label for="contrasena">Contraseña (minimo 8 caracteres):</label>
+      <input type="password" id="contrasena" name="contrasena" required minlength="8" />
+
+      <label for="confirmar">Confirmar Contraseña:</label>
+      <input type="password" id="confirmar" name="confirmar" required minlength="8" />
+
+      <span id="error-contrasena" style="color: #b87b4b; font-size: 1rem; display: none">Las contraseñas no
+        coinciden.</span>
+
+      <button type="submit" id="formita">Enviar</button>
+
+      <div class="registro-link" style="text-align: center; margin-top: 10px">
+        ¿Ya estás registrado?
+        <a href="LogIn.html" target="_blank" style="color: #b87b4b; text-decoration: underline; cursor: pointer">
+          Inicia sesión
+        </a>
+      </div>
+    </form>
+  </main>
+
+
+  <footer>
+    <p>© CookieBites</p>
+  </footer>
+</body>
+
+<script>
+  // Selección de elementos
+  const form = document.querySelector(".login-form");
+  const name = document.getElementById("nombre");
+  const username = document.getElementById("usuario");
+  const email = document.getElementById("correo");
+  const password = document.getElementById("contrasena");
+  const confirmPassword = document.getElementById("confirmar");
+
+  let urlParams = new URLSearchParams(window.location.search);
+  let tipoDeUsuario = urlParams.get("perfil");
+  let nombreUsuario = urlParams.get("id");
+
+  document.getElementById("boton-volver").addEventListener("click", () => {
+    window.location.href =
+      "ConsultarCatalogo.html?perfil=" +
+      tipoDeUsuario +
+      "&id=" +
+      nombreUsuario;
+  });
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    if (password.value !== confirmPassword.value) {
+      document.getElementById("error-contrasena").style.display = "block";
+      return;
+    } else {
+      document.getElementById("error-contrasena").style.display = "none";
+    }
+
+    const userData = {
+      nombre: name.value,
+      usuario: username.value,
+      correo: email.value,
+      contrasena: password.value,
+      rol: email.value == "cookiebites@gmail.com" ? "admin" : "cliente",
+    };
+
+    crearUsuario(
+      userData.nombre,
+      userData.usuario,
+      userData.contrasena,
+      userData.rol,
+      userData.correo
+    );
+  });
+
+  // async function crearUsuario(nombre, usuario, clave, rol, correo) {
+  //   fetch("http://localhost:8080/perfil/crear", {
+  //     method: "POST",
+  //     body: JSON.stringify({
+  //       nombre: nombre,
+  //       nombreUsuario: usuario,
+  //       clave: clave,
+  //       rol: rol,
+  //       correo: correo,
+  //     }),
+  //     headers: {
+  //       "Content-type": "application/json; charset=UTF-8",
+  //     },
+  //   })
+  //     .then((response) => {
+  //       if (!response.ok) {
+  //         alert("Error al registrar el usuario");
+  //         return;
+  //       }
+  //       alert("¡Registro exitoso!");
+  //       window.location.href =
+  //         "ConsultarCatalogo.html?perfil=" + rol + "&id=" + usuario;
+  //     })
+  //     .catch((error) => {
+  //       alert("No se pudo conectar con el servidor");
+  //       console.error(error);
+  //     });
+  // }
+
+  async function crearUsuario(nombre, usuario, clave, rol, correo) {
+    console.log(
+      JSON.stringify({
+        nombre: nombre,
+        nombreUsuario: usuario,
+        clave: clave,
+        rol: rol,
+        correo: correo,
+      })
+    );
+    alert("¡Registro de usuario exitoso!");
+    fetch("http://localhost:8080/perfil/crear", {
+      method: "POST",
+      body: JSON.stringify({
+        nombre: nombre,
+        nombreUsuario: usuario,
+        clave: clave,
+        rol: rol,
+        correo: correo,
+      }),
+      headers: {
+        "Content-type": "application/json; charset=UTF-8",
+      },
+    }).then(
+      (window.location.href =
+        "ConsultarCatalogo.html?perfil=" + rol + "&id=" + usuario)
+    );
+  }
+</script>
+
+</html>

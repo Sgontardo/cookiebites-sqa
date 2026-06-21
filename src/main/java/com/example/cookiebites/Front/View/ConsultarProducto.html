@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBites</title>
+  <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header>
+    <img id="logo" src="img/CookieBitesSinFondo.png" alt="Logo CookieBites" class="logo" />
+    <div class="icons">
+      <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+      <img src="img/edit.png" alt="Crear cuenta" class="perfil-nuevo" />
+      <img src="img/usuario.png" alt="usuario" class="usuario" />
+      <img src="img/carrito.png" alt="Carrito de Pedidos" class="carrito" />
+      <img src="img/ventas.png" alt="Ventas" class="ventas" />
+    </div>
+  </header>
+  <main>
+    <button id="boton-volver">Volver</button>
+    <div class="infoproducto">
+      <div class="descprod" id="fotoproducto">
+        <img id="productImage" alt="foto de producto" />
+      </div>
+      <div class="info-columna">
+        <div class="descprod" id="nomproducto">
+          <h3>Nombre:</h3>
+          <p id="nombredelproducto"></p>
+        </div>
+        <div class="descprod" id="ingreproducto">
+          <h3>Ingredientes:</h3>
+          <ul id="ingredientesdelproducto"></ul>
+        </div>
+        <div class="descprod" id="precioproducto">
+          <h3>Precio:</h3>
+          <p id="preciodelproducto"></p>
+        </div>
+        <div class="contenedor-boton">
+          <div class="contenedor-cantidad">
+            <button type="button" id="restarCantidad">-</button>
+            <input type="number" id="cantidadGalletas" value="1" min="1" />
+            <button type="button" id="sumarCantidad">+</button>
+          </div>
+          <button class="button button1" id="boton-agrergar">
+            <strong>Agregar al carrito</strong>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+  <footer>
+    <p>© CookieBites</p>
+  </footer>
+</body>
+
+<script>
+
+  document.addEventListener("DOMContentLoaded", function () {
+    let urlParams = new URLSearchParams(window.location.search);
+    let tipoDeUsuario = urlParams.get("perfil");
+    let nombreUsuario = urlParams.get("id");
+    let nombreProducto = urlParams.get("prod");
+    let productoMostrado;
+    let precioUnitario = NaN;
+
+    document.getElementById("boton-volver").addEventListener("click", () => {
+      window.location.href =
+        "ConsultarCatalogo.html?perfil=" +
+        tipoDeUsuario +
+        "&id=" +
+        nombreUsuario;
+    });
+
+    /*document.querySelector(".usuario").src =
+      tipoDeUsuario == "cliente" || tipoDeUsuario == "admin"
+        ? "img/usuario.png"
+        : "img/edit.png";
+    
+    });*/
+
+
+    function insertarDatos(product) {
+      productoMostrado = product;
+      const productNameElement = document.getElementById("nombredelproducto");
+      const productPriceElement = document.getElementById("preciodelproducto");
+      const productIngredientsList = document.getElementById(
+        "ingredientesdelproducto"
+      );
+      const productImageElement = document.getElementById("productImage");
+
+      if (product.imagen) {
+        productImageElement.src = product.imagen;
+      } else {
+        productImageElement.src = "img/galletas/galletaslimon.jpg";
+      }
+      productImageElement.alt = product.nombre || "Imagen del Producto";
+
+      productNameElement.textContent = product.nombre;
+      precioUnitario = parseFloat(product.precio);
+      productPriceElement.textContent =
+        !isNaN(precioUnitario) && precioUnitario > 0
+          ? `${precioUnitario}$`
+          : "";
+
+      productIngredientsList.innerHTML = "";
+      if (product.ingredientes && Array.isArray(product.ingredientes)) {
+        product.ingredientes.forEach((ingredient) => {
+          const listItem = document.createElement("li");
+          listItem.textContent = ingredient;
+          productIngredientsList.appendChild(listItem);
+        });
+      } else {
+        const listItem = document.createElement("li");
+        listItem.textContent = "No hay ingredientes listados.";
+        productIngredientsList.appendChild(listItem);
+      }
+    }
+
+    async function buscarProducto() {
+      fetch("http://localhost:8080/productos/buscar/" + nombreProducto)
+        .then((response) => response.json())
+        .then((json) => insertarDatos(json));
+    }
+
+    async function agregarCarrito(cant) {
+      fetch("http://localhost:8080/carrito/agregar/" + nombreUsuario, {
+        method: "POST",
+        body: JSON.stringify({
+          producto: productoMostrado,
+          cantidad: cant,
+        }),
+        headers: {
+          "Content-type": "application/json; charset=UTF-8",
+        },
+      }).then(() => {
+        window.location.href =
+          "Carrito.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario;
+      });
+    }
+
+    // Selector de cantidad y actualización de precio
+    const inputCantidad = document.getElementById("cantidadGalletas");
+    const btnSumar = document.getElementById("sumarCantidad");
+    const btnRestar = document.getElementById("restarCantidad");
+    const productPriceElement = document.getElementById("preciodelproducto");
+
+    function actualizarPrecio() {
+      const cantidad = parseInt(inputCantidad.value);
+      if (isNaN(precioUnitario) || precioUnitario <= 0 || isNaN(cantidad)) {
+        productPriceElement.textContent = "";
+        return;
+      }
+      const total = (precioUnitario * cantidad).toFixed(2);
+      productPriceElement.textContent = `${total}$`;
+    }
+
+    btnSumar.addEventListener("click", function () {
+      inputCantidad.value = parseInt(inputCantidad.value) + 1;
+      actualizarPrecio();
+    });
+
+    btnRestar.addEventListener("click", function () {
+      if (parseInt(inputCantidad.value) > 1) {
+        inputCantidad.value = parseInt(inputCantidad.value) - 1;
+        actualizarPrecio();
+      }
+    });
+
+    inputCantidad.addEventListener("input", function () {
+      if (
+        parseInt(inputCantidad.value) < 1 ||
+        isNaN(parseInt(inputCantidad.value))
+      ) {
+        inputCantidad.value = 1;
+      }
+      actualizarPrecio();
+    });
+
+    function validarNombreProducto(nombre) {
+    const regex = /^[a-zA-Z\s]+$/;
+    return regex.test(nombre);
+    }
+
+    // Agregar al carrito o editar producto según perfil
+    const botonAgregar = document.getElementById("boton-agrergar");
+    if (tipoDeUsuario === "admin") {
+      // Oculta el selector de cantidad para admin
+      document.querySelector(".contenedor-cantidad").style.display = "none";
+      botonAgregar.innerHTML = "<strong>Editar</strong>";
+      botonAgregar.onclick = async function () {
+        // Convierte los campos a editables
+        const nombreElem = document.getElementById("nombredelproducto");
+        const precioElem = document.getElementById("preciodelproducto");
+        const ingredientesElem = document.getElementById("ingredientesdelproducto");
+        const imagenElem = document.getElementById("productImage");
+
+        // Reemplaza por inputs
+        nombreElem.innerHTML = `<input id="input-nombre" value="${nombreElem.textContent}" />`;
+        precioElem.innerHTML = `<input id="input-precio" type="number" min="0" step="0.01" value="${parseFloat(productoMostrado.precio)}" />$`;
+
+        // Ingredientes como textarea
+        let ingredientesText = Array.from(ingredientesElem.querySelectorAll("li")).map(li => li.textContent).join(", ");
+        ingredientesElem.innerHTML = `<textarea id="input-ingredientes" rows="2">${ingredientesText}</textarea>`;
+
+        // Cambia el botón a "Guardar"
+        botonAgregar.innerHTML = "<strong>Guardar</strong>";
+        botonAgregar.onclick = async function () {
+          const nuevoNombre = document.getElementById("input-nombre").value;
+          const nuevoPrecio = parseFloat(document.getElementById("input-precio").value);
+          const nuevosIngredientes = document.getElementById("input-ingredientes").value.split(",").map(i => i.trim());
+          const imagengeneral = document.getElementById("productImage");
+
+          if (!validarNombreProducto(nuevoNombre)) {
+            alert("Error: El nombre del solo puede contener letras y espacios. No se permiten otros caracteres.");
+            return; 
+          }
+
+          if (isNaN(nuevoPrecio) || nuevoPrecio <= 0) {
+                alert("Error: El precio del producto debe ser un número mayor que cero.");
+                return; 
+          }
+
+          // Envía PUT al backend
+          const response = await fetch("http://localhost:8080/productos/editar/" + encodeURIComponent(nombreProducto), {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              nombre: nuevoNombre,
+              precio: nuevoPrecio,
+              ingredientes: nuevosIngredientes,
+              imagen: imagengeneral.src
+            }),
+          });
+          if (response.ok){
+            //alert("Producto actualizado");
+            window.location.replace("ConsultarCatalogo.html?perfil=admin&id=" + nombreUsuario);
+          }
+          else {
+            alert("Error al actualizar el producto");
+          }
+        };
+      };
+    } else {
+      // Agregar al carrito (cliente)
+      botonAgregar.addEventListener("click", () => {
+        const cantidad = parseInt(document.getElementById("cantidadGalletas").value);
+        agregarCarrito(cantidad);
+      });
+    }
+
+    // Iconos de usuario y carrito
+    const usuario = document.querySelector(".usuario");
+    const ventasicon = document.querySelector(".ventas");
+    const carritoIcon = document.querySelector(".carrito");
+    const cierreicon = document.querySelector(".logout");
+    const editusericon = document.querySelector(".perfil-nuevo");
+
+    if(tipoDeUsuario!=="admin" && tipoDeUsuario!=="cliente"){
+      cierreicon.style.display="none";
+      ventasicon.style.display= "none";
+      editusericon.style.display = "none";
+    }
+    else{
+      cierreicon.style.display="inline";
+      cierreicon.onclick = function () {
+        if(confirm("¿Estas seguro de querer cerrar sesión?"))
+          window.location.href = "ConsultarCatalogo.html";
+      };
+      
+    }
+    
+    if (tipoDeUsuario === "admin") {
+      ventasicon.style.display = "inline";
+      editusericon.style.display = "inline";
+      carritoIcon.style.display = "none";
+      usuario.style.display = "none";
+      ventasicon.onclick = function () {
+        window.location.href =
+          "ConsultarVenta.html?perfil=admin&id=" + nombreUsuario;
+      };
+      editusericon.onclick = function () {
+        window.location.href = "EliminarPerfil.html?perfil=admin&id=" + nombreUsuario;
+      }
+    } else {
+      ventasicon.style.display = "none";
+      editusericon.style.display = "none";
+      usuario.style.display = "inline";
+      carritoIcon.style.display = "inline";
+      carritoIcon.onclick = function () {
+        window.location.href = "Carrito.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario;
+      };
+      usuario.onclick = function () {
+        let url =
+          tipoDeUsuario == "cliente" ? "ConsultarPerfil.html?perfil=" + tipoDeUsuario + "&id=" + nombreUsuario : "LogIn.html";
+        window.location.href = url;
+      };
+    }
+
+    buscarProducto();
+  });
+
+
+</script>

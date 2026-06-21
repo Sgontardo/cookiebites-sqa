@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CookieBites</title>
+  <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dongle&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap" rel="stylesheet" />
+</head>
+
+<body>
+  <header>
+    <img id="logo" src="img/CookieBitesSinFondo.png" alt="Logo CookieBites" class="logo" />
+    <div class="icons">
+      <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+      <img src="img/edit.png" alt="Crear cuenta" class="perfil-nuevo" />
+      <img src="img/ventas.png" alt="ventas" class="ventas" />
+    </div>
+  </header>
+  <main>
+    <button id="boton-volver">Volver</button>
+
+    <h2>Ventas</h2>
+    <div id="ventas-container"></div>
+  </main>
+
+
+  <footer>
+    <p>© CookieBites</p>
+  </footer>
+
+  <script>
+    // Obtener parámetros de la URL
+    let urlParams = new URLSearchParams(window.location.search);
+    let nombreUsuario = urlParams.get("id");
+
+    // Botón volver: regresa al catálogo de administrador
+    document.getElementById("boton-volver").addEventListener("click", () => {
+      window.location.href =
+        "ConsultarCatalogo.html?perfil=admin&id=" + nombreUsuario;
+    });
+
+    // Cargar ventas y mostrarlas en tarjetas alargadas
+    async function cargarVentas() {
+      const response = await fetch("http://localhost:8080/ventas");
+      const ventas = await response.json();
+      const container = document.getElementById("ventas-container");
+      container.innerHTML = "";
+      if (!ventas || ventas.length === 0) {
+        container.innerHTML = "<p>No hay ventas registradas.</p>";
+        return;
+      }
+      ventas.forEach((venta, idx) => {
+        const card = document.createElement("div");
+        card.className = "venta-card";
+        card.innerHTML = `
+            <div><strong># Venta:</strong> ${idx + 1}</div>
+            <div><strong>Banco:</strong> ${venta.banco ?? "N/A"}</div>
+            <div><strong>Cédula:</strong> ${venta.cedula ?? "N/A"}</div>
+            <div><strong>Teléfono:</strong> ${venta.numTelf ?? "N/A"}</div>
+            <div><strong>Referencia:</strong> ${venta.numRef ?? "N/A"}</div>
+          `;
+        container.appendChild(card);
+      });
+    }
+
+    const editusericon = document.querySelector(".perfil-nuevo");
+    editusericon.onclick = function () {
+      window.location.href = "EliminarPerfil.html?perfil=admin&id=" + nombreUsuario;
+    };
+
+    const cierreicon = document.querySelector(".logout");
+        cierreicon.onclick = function () {
+        if(confirm("¿Estas seguro de querer cerrar sesión?"))
+          window.location.href = "ConsultarCatalogo.html";
+      };
+
+    cargarVentas();
+  </script>
+</body>
+
+</html>

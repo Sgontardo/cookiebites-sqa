@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CookieBites</title>
+    <link rel="icon" href="img/galletitafavicon.ico" type="/x-icon" />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Dongle&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Pacifico&display=swap"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Hedvig+Letters+Sans&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header>
+      <img
+        id="logo"
+        src="img/CookieBitesSinFondo.png"
+        alt="Logo CookieBites"
+        class="logo"
+      />
+      <div class="icons">
+        <img src="img/logout.png" alt="Cerrar Sesión" class="logout" />
+        <img src="img/edit.png" alt="Crear cuenta" class="perfil-nuevo" />
+        <img src="img/ventas.png" alt="ventas" class="ventas" />
+      </div>
+    </header>
+    <main>
+      <button id="boton-volver">Volver</button>
+
+    <h2>Perfiles Registrados</h2>
+    <div id="perfiles-container"></div>
+    </main>
+    
+
+    <footer>
+      <p>© CookieBites</p>
+    </footer>
+
+    <script>
+      // Obtener parámetros de la URL
+      let urlParams = new URLSearchParams(window.location.search);
+      let tipoDeUsuario = urlParams.get("perfil");
+      let nombreUsuario = urlParams.get("id");
+
+      // Acción del botón volver: si es empleado, regresa como admin
+      document.getElementById("boton-volver").addEventListener("click", () => {
+        if (tipoDeUsuario === "empleado") {
+          window.location.href =
+            "ConsultarCatalogo.html?perfil=admin&id=" + nombreUsuario;
+        } else {
+          window.location.href =
+            "ConsultarCatalogo.html?perfil=" +
+            tipoDeUsuario +
+            "&id=" +
+            nombreUsuario;
+        }
+      });
+
+      // Acción del icono perfil: si es empleado, recarga esta interfaz
+      document.querySelector(".perfil-nuevo").addEventListener("click", () => {
+        if (tipoDeUsuario === "empleado") {
+          window.location.href =
+            "EliminarPerfil.html?perfil=empleado&id=" + nombreUsuario;
+        }
+      });
+
+      // Cargar perfiles desde el backend
+      async function cargarPerfiles() {
+        const response = await fetch("http://localhost:8080/perfil/todos");
+        const perfiles = await response.json();
+        const container = document.getElementById("perfiles-container");
+        container.innerHTML = "";
+        perfiles.forEach((perfil) => {
+          const card = document.createElement("div");
+          card.className = "perfil-card";
+          card.innerHTML = `
+            <div class="perfil-info">
+              <strong>Nombre:</strong> ${perfil.nombre} <br>
+              <strong>Usuario:</strong> ${perfil.nombreUsuario} <br>
+              <strong>Correo:</strong> ${perfil.correo}
+            </div>
+            <button class="eliminar-btn" title="Eliminar perfil">
+              <img src="img/papelera.png" alt="Eliminar" class="icono-papelera">
+            </button>
+          `;
+          // Para eliminar
+          card.querySelector(".eliminar-btn").onclick = async () => {
+            if (
+              confirm(
+                `¿Seguro que deseas eliminar el perfil de ${perfil.nombreUsuario}?`
+              )
+            ) {
+              await fetch(
+                "http://localhost:8080/perfil/eliminar/" +
+                  encodeURIComponent(perfil.nombreUsuario),
+                { method: "DELETE" }
+              );
+              cargarPerfiles();
+            }
+          };
+          container.appendChild(card);
+        });
+      }
+
+      const ventasicon = document.querySelector(".ventas");
+        ventasicon.onclick = function () {
+        window.location.href = "ConsultarVenta.html?perfil=admin&id=" + nombreUsuario;
+      };
+
+      const cierreicon = document.querySelector(".logout");
+        cierreicon.onclick = function () {
+        if(confirm("¿Estas seguro de querer cerrar sesión?"))
+          window.location.href = "ConsultarCatalogo.html";
+      };
+
+
+
+
+      cargarPerfiles();
+
+    </script>
+  </body>
+</html>
