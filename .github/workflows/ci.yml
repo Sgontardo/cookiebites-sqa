@@ -1,0 +1,143 @@
+name: CI/CD Pipeline para CookieBites SQA
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  IMAGE_NAME: cookiebites-sqa
+  JAVA_VERSION: '17'
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  CLICKUP_API_TOKEN: ${{ secrets.CLICKUP_API_TOKEN }}
+  CLICKUP_LIST_ID: ${{ secrets.CLICKUP_LIST_ID }}
+
+jobs:
+  build-test-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Build, test and generate coverage
+        run: ./mvnw -B clean verify
+
+      - name: Upload JUnit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports/
+          if-no-files-found: warn
+
+      - name: Upload JaCoCo coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          if-no-files-found: warn
+
+      - name: Build Docker image
+        run: docker build -t $IMAGE_NAME:ci .
+
+      - name: Smoke test Docker image
+        run: |
+          docker run -d --rm --name $IMAGE_NAME-smoke -p 8080:8080 $IMAGE_NAME:ci
+          trap 'docker logs $IMAGE_NAME-smoke || true; docker stop $IMAGE_NAME-smoke >/dev/null 2>&1 || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/productos >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'El contenedor no estuvo listo a tiempo.'
+          exit 1
+
+      - name: SonarQube Scan
+        if: ${{ env.SONAR_TOKEN != '' && env.SONAR_HOST_URL != '' }}
+        uses: SonarSource/sonarqube-scan-action@v3
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+
+      - name: Create ClickUp task for failed steps
+        if: ${{ failure() && env.CLICKUP_API_TOKEN != '' && env.CLICKUP_LIST_ID != '' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+        run: |
+          set -euo pipefail
+
+          jobs_url="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/jobs"
+          jobs_json=$(curl -fsSL \
+            -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$jobs_url")
+
+          failed_steps=$(printf '%s' "$jobs_json" | jq -c '.jobs[].steps[]? | select(.conclusion == "failure" or .conclusion == "cancelled")')
+
+          if [ -z "$failed_steps" ]; then
+            failed_steps='{"name":"Desconocido","conclusion":"failure","number":0}'
+          fi
+
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+
+          while IFS= read -r step; do
+            [ -z "$step" ] && continue
+
+            step_name=$(printf '%s' "$step" | jq -r '.name // "Desconocido"')
+            step_conclusion=$(printf '%s' "$step" | jq -r '.conclusion // "failure"')
+
+            task_name="[FALLA] $GITHUB_WORKFLOW - $step_name - ${GITHUB_SHA:0:7}"
+            task_description=$(jq -n \
+              --arg step_name "$step_name" \
+              --arg step_conclusion "$step_conclusion" \
+              --arg workflow "$GITHUB_WORKFLOW" \
+              --arg run_id "$GITHUB_RUN_ID" \
+              --arg branch "$GITHUB_REF_NAME" \
+              --arg commit "$GITHUB_SHA" \
+              --arg run_url "$run_url" \
+              '{
+                step_failed: $step_name,
+                conclusion: $step_conclusion,
+                workflow: $workflow,
+                run_id: $run_id,
+                branch: $branch,
+                commit: $commit,
+                run_url: $run_url
+              }')
+
+            payload=$(jq -n \
+              --arg name "$task_name" \
+              --arg description "**Etapa que falló:** $step_name\n\n**Conclusión:** $step_conclusion\n**Workflow:** $GITHUB_WORKFLOW\n**Run ID:** $GITHUB_RUN_ID\n**Branch:** $GITHUB_REF_NAME\n**Commit:** $GITHUB_SHA\n**URL del run:** $run_url\n\n**Detalle estructurado:**\n\`\`\`json\n$task_description\n\`\`\`" \
+              '{name: $name, description: $description, priority: 3, tags: ["pipeline", "fallo-automatico", "hallazgo"]}')
+
+            curl -fsSL -X POST "https://api.clickup.com/api/v2/list/$CLICKUP_LIST_ID/task" \
+              -H "Authorization: $CLICKUP_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$payload"
+          done
