@@ -1,6 +1,6 @@
 # Guía de Selenium y JMeter para CookieBites SQA
 
-Este documento sirve como referencia para el Tester. DevOps deja la base lista: repositorio, contenedor Docker, pipeline de GitHub Actions, SonarQube, JUnit y notificación a ClickUp. El Tester toma esta base y agrega las pruebas dinámicas de interfaz y rendimiento sin modificar la lógica del proyecto.
+Este documento sirve como referencia para el Tester. DevOps deja la base lista: repositorio, contenedor Docker, pipeline de GitHub Actions, SonarQube, JUnit, Selenium Grid, JMeter y notificación a ClickUp. El Tester toma esta base y agrega las pruebas dinámicas de interfaz y rendimiento sin modificar la lógica del proyecto.
 
 ## 1. Cómo compartir el proyecto al Tester
 
@@ -21,7 +21,13 @@ cd cookiebites-sqa
 docker compose up --build
 ```
 
-Si quiere correr solo la imagen:
+Para incluir Selenium Grid (necesario para pruebas Selenium en Docker):
+
+```bash
+docker compose --profile selenium up --build -d
+```
+
+Si quiere correr solo la imagen de la app:
 
 ```bash
 docker build -t cookiebites-sqa:latest .
@@ -60,7 +66,33 @@ Selenium debe usarse para validar flujos de usuario visibles en la interfaz web.
 
 Verificar que los formularios, botones y consultas respondan como espera el usuario final.
 
-### Casos sugeridos
+### Prueba demo incluida
+
+Ya existe una prueba demo en `src/test/java/com/example/cookiebites/sqa/selenium/LoginPageTest.java` que:
+- Abre la página de login (`LogIn.html`)
+- Verifica que el título contenga "CookieBites"
+- Verifica que los campos `usuario` y `contrasena` existan
+
+### Cómo ejecutar Selenium localmente
+
+Opción A — Con Selenium Grid en Docker (recomendado):
+
+```bash
+# Terminal 1: Iniciar app + Selenium Grid
+docker compose --profile selenium up --build -d
+
+# Terminal 2: Ejecutar pruebas Selenium
+./mvnw test -P selenium-tests -DSELENIUM_REMOTE_URL=http://localhost:4444/wd/hub -DTARGET_URL=http://localhost:8080/LogIn.html
+```
+
+Opción B — Con ChromeDriver local (sin Docker):
+
+```bash
+# Asegúrate de tener Chrome instalado
+./mvnw test -P selenium-tests -DTARGET_URL=http://localhost:8080/LogIn.html
+```
+
+### Casos sugeridos para el Tester
 
 - Buscar producto existente.
 - Buscar producto inexistente.
@@ -77,8 +109,8 @@ Verificar que los formularios, botones y consultas respondan como espera el usua
 
 ### Estructura sugerida
 
-- `src/test/java/.../selenium/`
-- `src/test/resources/selenium/`
+- `src/test/java/.../selenium/` — clases de prueba Java con JUnit + Selenium
+- `src/test/resources/selenium/` — recursos adicionales (drivers, config, etc.)
 
 ### Evidencias esperadas
 
@@ -94,7 +126,21 @@ JMeter debe usarse para medir tiempos de respuesta y comportamiento bajo carga.
 
 Validar que las operaciones críticas no superen el límite de respuesta definido para el proyecto.
 
-### Casos sugeridos
+### Prueba demo incluida
+
+Ya existe un plan de prueba smoke en `src/test/jmeter/cookiebites-smoke.jmx` que:
+- Hace `GET /productos`
+- Valida que el código de respuesta sea 200
+
+### Cómo ejecutar JMeter localmente
+
+```bash
+./mvnw verify -P jmeter-tests -DskipTests -D"jmeter.host=localhost" -D"jmeter.port=8080" -D"jmeter.protocol=http"
+```
+
+El plugin descarga JMeter automáticamente, ejecuta los `.jmx` de `src/test/jmeter/` y genera reportes en `target/jmeter/reports/`.
+
+### Casos sugeridos para el Tester
 
 - `GET /productos`
 - `GET /productos/buscar/{nombre}`
@@ -117,21 +163,37 @@ Validar que las operaciones críticas no superen el límite de respuesta definid
 
 ### Archivos útiles
 
-- Plan de prueba `.jmx`.
-- Reporte HTML de JMeter.
-- CSV de resultados sin procesar.
+- Plan de prueba `.jmx` en `src/test/jmeter/`
+- Reporte HTML de JMeter en `target/jmeter/reports/`
+- CSV de resultados en `target/jmeter/results/`
 
 ## 6. Integración con el pipeline
 
-DevOps ya dejó el pipeline base listo para:
+El pipeline de GitHub Actions (`.github/workflows/ci.yml`) ejecuta automáticamente en cada push a `main`:
 
-- Ejecutar build y pruebas unitarias.
-- Generar cobertura con JaCoCo.
-- Construir la imagen Docker.
-- Hacer smoke test.
-- Enviar fallos a ClickUp.
+| Etapa | Qué hace | Reporte a ClickUp |
+|---|---|---|
+| JUnit | Build + pruebas unitarias + cobertura JaCoCo | Crea tarea con tags `junit`, `prueba-unitaria`, `cobertura` |
+| Docker | Construye imagen + smoke test | — |
+| Selenium Grid | Inicia contenedor Chrome standalone | — |
+| Selenium | Ejecuta `./mvnw test -P selenium-tests` | Crea tarea con tags `selenium`, `prueba-sistema` |
+| JMeter | Ejecuta `./mvnw verify -P jmeter-tests` | Crea tarea con tags `jmeter`, `prueba-rendimiento` |
+| SonarQube | Análisis estático de código | Crea tarea con tags `sonarqube`, `analisis-estatico` |
 
-Cuando el Tester entregue Selenium y JMeter, se recomienda agregar etapas separadas en GitHub Actions para correrlos y publicar sus reportes como artefactos.
+Cada tarea en ClickUp incluye:
+- Estado: ✅ Pasó / ❌ Falló
+- Commit y branch
+- Enlace al run de GitHub Actions
+- Enlace a los artefactos generados (reportes JUnit, JaCoCo, Selenium, JMeter)
+
+### Secrets requeridos en GitHub
+
+| Secret | Propósito |
+|---|---|
+| `SONAR_TOKEN` | Token de autenticación para SonarQube |
+| `SONAR_HOST_URL` | URL del servidor SonarQube |
+| `CLICKUP_API_TOKEN` | Token de la API de ClickUp |
+| `CLICKUP_LIST_ID` | ID de la Lista B (Hallazgos) en ClickUp |
 
 ## 7. Trazabilidad mínima recomendada
 
@@ -147,11 +209,13 @@ Cada prueba del Tester debe indicar:
 
 ## 8. Flujo sugerido de trabajo
 
-1. Verificar que el contenedor esté corriendo.
-2. Ejecutar Selenium sobre la interfaz web.
-3. Ejecutar JMeter contra los endpoints críticos.
-4. Registrar resultados y evidencias.
-5. Entregar hallazgos al equipo para trazabilidad y auditoría.
+1. Clonar el repositorio.
+2. Verificar que el contenedor esté corriendo (`docker compose up --build`).
+3. Ejecutar Selenium sobre la interfaz web.
+4. Ejecutar JMeter contra los endpoints críticos.
+5. Registrar resultados y evidencias.
+6. Entregar hallazgos al equipo para trazabilidad y auditoría.
+7. Hacer push de los cambios (incluyendo nuevos tests) para que el pipeline los ejecute y genere reportes en ClickUp.
 
 ## 9. Regla práctica
 

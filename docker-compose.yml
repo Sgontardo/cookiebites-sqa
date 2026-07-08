@@ -11,5 +11,13 @@ services:
       - ./Data:/app/Data
       - app_uploads:/app/src/main/java/com/example/cookiebites/Front/View/img/galletas
 
+  selenium-chrome:
+    image: selenium/standalone-chrome:latest
+    ports:
+      - "4444:4444"
+    shm_size: 2gb
+    profiles:
+      - selenium
+
 volumes:
   app_uploads:
