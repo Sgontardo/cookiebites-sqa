@@ -18,6 +18,16 @@ Establecer el punto cero de SQA realizando el commit inicial con el código fuen
 
 *IEEE 730-2014 (Cláusula 5.3: Planificación de SQA). El baseline es el inicio de la simulación, no del desarrollo. El objetivo es evaluar el proceso, no el producto.*
 
+## Pruebas que quiere el equipo hacer (las resaltadas en amarillo)
+
+- Identificador Único: CP-EF-004 (agregarPerfil)
+- Identificador Único: CP-EF-006 (editarPerfil)
+- Identificador Único: CP-EF-007 (buscarProducto)
+- Identificador Único: CP-EF-010 (eliminarProducto)
+- Identificador Único: CP-EF-021 (CarritoCompra.agregarCarrito)
+- Identificador Único: CP-EF-027 (ListaPedidos.findByName)
+- Identificador Único: CP-EF-028 (ListaVentas.save)
+
 ## Orquestación del Pipeline de CI/CD (Simulación de Integración)
 
 Simular integraciones para evaluar el proceso de IC/DC. Configurar el pipeline en GitHub Actions para que ejecute build, pruebas JUnit y análisis SonarQube en cada commit. El fraccionamiento del código es una técnica para generar eventos de integración.
@@ -35,6 +45,23 @@ Crear el contenedor Docker para que el ambiente de pruebas sea reproducible y co
 - El contenedor Docker está disponible y documentado.
 - El entorno de pruebas es consistente y reproducible.
 
+### Entrega para compartir
+
+La imagen está preparada para que cualquier persona pueda correr el proyecto de dos formas:
+
+```bash
+docker build -t cookiebites-sqa:latest .
+docker run --rm -p 8080:8080 cookiebites-sqa:latest
+```
+
+O bien con Compose:
+
+```bash
+docker compose up --build
+```
+
+La aplicación expone el puerto `8080` y conserva los datos locales en el volumen/archivo montado según la configuración del contenedor.
+
 *ISO/IEC/IEEE 12207 (Gestión de infraestructura). Un entorno reproducible es clave para la validez de las pruebas.*
 
 ## Automatización de ClickUp (Gobernanza de Datos)
@@ -43,6 +70,10 @@ Configurar webhooks para que los fallos en el pipeline abran automáticamente ta
 
 - Los fallos en el pipeline crean automáticamente tareas en ClickUp.
 - Se ha documentado el flujo de datos desde el pipeline hasta ClickUp.
+
+### Integración real usada
+
+La automatización queda conectada con la API de ClickUp mediante los secretos del workflow de GitHub Actions. Cuando falla una etapa, el pipeline consulta el run, detecta cada paso con fallo o cancelación y crea una tarea individual por cada evento.
 
 *ISO/IEC/IEEE 15289 (Gestión de información del ciclo de vida). La gobernanza de datos asegura la trazabilidad y la fiabilidad de las conclusiones.*
 
@@ -96,6 +127,10 @@ Configurar webhooks para que los fallos en el pipeline abran automáticamente ta
 6. **Integración de Pruebas Dinámicas:** Subir scripts de Selenium y JMeter al repositorio y configurar el pipeline para ejecutarlos.
 7. **ClickUp:** Configurar webhooks para que los fallos del pipeline creen tareas automáticamente.
 8. **Métricas:** Asegurar que los reportes generados estén disponibles para el Líder de Métricas.
+
+## Rol del Tester
+
+El Tester se encarga de Selenium y JMeter. DevOps deja la infraestructura lista y solo integra los artefactos de prueba cuando ya existan. El contenedor y el pipeline deben servir como base común para que el Tester valide comportamiento funcional y rendimiento sin rehacer el entorno.
 
 ## Mensaje Clave para el DevOps
 
