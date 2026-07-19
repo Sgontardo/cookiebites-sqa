@@ -63,10 +63,10 @@ jobs:
           set -euo pipefail
           if [ "$TEST_STATUS" = "success" ]; then
             status_icon="✅"
-            status_text="Pasó"
+            status_text="PASSED"
           else
             status_icon="❌"
-            status_text="Falló"
+            status_text="FAILED"
           fi
           task_name="[JUNIT] Pruebas Unitarias e Integracion - $status_text - ${GITHUB_SHA:0:7}"
           description="**Tipo:** Pruebas Unitarias e Integracion (JUnit)\n**Resultado:** $status_icon $status_text\n**Commit:** ${GITHUB_SHA:0:7}\n**Branch:** $GITHUB_REF_NAME\n**Run:** $RUN_URL\n\n**Artefactos:**\n- Reporte JUnit: $RUN_URL (artifact: surefire-reports)"
@@ -74,7 +74,8 @@ jobs:
           payload=$(jq -n \
             --arg name "$task_name" \
             --arg description "$description" \
-            '{name: $name, description: $description, tags: ["junit", "prueba-unitaria", "reporte-automatico"]}')
+            --arg status "$status_text" \
+            '{name: $name, description: $description, status: $status, tags: ["junit", "prueba-unitaria", "reporte-automatico"]}')
           curl -fsSL -X POST "https://api.clickup.com/api/v2/list/$CLICKUP_LIST_ID/task" \
             -H "Authorization: $CLICKUP_API_TOKEN" \
             -H "Content-Type: application/json" \
