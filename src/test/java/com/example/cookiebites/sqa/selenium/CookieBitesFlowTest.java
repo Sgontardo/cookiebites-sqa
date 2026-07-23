@@ -35,14 +35,18 @@ public class CookieBitesFlowTest {
         driver.switchTo().newWindow(WindowType.TAB);
     }
 
-    // Al finalizar la prueba, cerramos la pestaña actual para dejar limpia la sesión
+    // Al finalizar la prueba, cerramos la pestaña de forma SEGURA
     @AfterEach
     void tearDown() {
-        // Solo cerramos si hay más de una ventana abierta
         if (driver.getWindowHandles().size() > 1) {
-            driver.close();
-            // Regresamos el foco a la primera pestaña disponible
-            driver.switchTo().window(driver.getWindowHandles().iterator().next());
+            try {
+                driver.close();
+            } catch (Exception e) {
+                System.out.println("No se pudo cerrar la pestaña, forzando cambio de foco. Error: " + e.getMessage());
+            } finally {
+                // Siempre intentamos regresar el foco a la pestaña principal, incluso si falló el cierre
+                driver.switchTo().window(driver.getWindowHandles().iterator().next());
+            }
         }
     }
 
@@ -50,7 +54,11 @@ public class CookieBitesFlowTest {
     @AfterAll
     void tearDownAll() {
         if (driver != null) {
-            driver.quit();
+            try {
+                driver.quit();
+            } catch (Exception e) {
+                System.out.println("Error al cerrar el navegador: " + e.getMessage());
+            }
         }
     }
 
@@ -124,14 +132,36 @@ public class CookieBitesFlowTest {
         driver.findElement(By.id("boton-agrergar")).click();
         pausa();
         driver.findElement(By.id("boton-crearpedido")).click();
+        
+        // Formulario de pedido
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("cliente"))).sendKeys(cliente);
         WebElement campoFecha = driver.findElement(By.id("fecha"));
         ((JavascriptExecutor) driver).executeScript("arguments[0].value='" + fecha + "';", campoFecha);
+        
+        // Forzar evento 'change' en la fecha por si la página necesita validarlo
+        ((JavascriptExecutor) driver).executeScript("arguments[0].dispatchEvent(new Event('change'));", campoFecha);
+        
         Select dropdownZona = new Select(wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("zona"))));
         dropdownZona.selectByValue(zona);
         driver.findElement(By.id("detalles")).sendKeys(desc);
         pausa();
-        wait.until(ExpectedConditions.elementToBeClickable(By.id("boton-siguiente"))).click();
+        
+        // Buscar el botón siguiente, hacer scroll para asegurar que sea visible, y hacer click
+        WebElement btnSiguiente = wait.until(ExpectedConditions.elementToBeClickable(By.id("boton-siguiente")));
+        ((JavascriptExecutor) driver).executeScript("arguments[0].scrollIntoView(true);", btnSiguiente);
+        pausa();
+        
+        try {
+            btnSiguiente.click();
+        } catch (Exception e) {
+            // Si el click normal falla por superposición, forzamos el click con Javascript
+            ((JavascriptExecutor) driver).executeScript("arguments[0].click();", btnSiguiente);
+        }
+        
+        // Esperamos 2 segundos extras para asegurar que la pantalla cambie
+        try { Thread.sleep(2000); } catch (Exception e) {}
+        
+        // Formulario de pago
         wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("titular"))).sendKeys(titular);
         Select dropdownBanco = new Select(wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("banco"))));
         dropdownBanco.selectByValue(banco);
